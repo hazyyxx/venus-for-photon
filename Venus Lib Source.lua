@@ -718,12 +718,15 @@ function library:Load(options)
     local theme = options.Theme or "Default"
     local extension = options.Extension or "json"
     local folder = options.Folder or "venus_lib"
+    local toggle_key = options.ToggleKey or 0x2D -- INSERT key by default (0x2D)
     
     library.folder = folder
     library.extension = extension
+    library.open = true -- Ensure GUI is open by default
     
     local window = Window.new(name, sizeX, sizeY, theme)
     library.window = window
+    window.open = true -- Ensure window is open
     
     -- Auto-load themes (non-critical, won't fail if files don't exist)
     library:LoadThemes()
@@ -749,11 +752,25 @@ function library:Load(options)
         end
     end
     
+    -- Add toggle keybind
+    library.toggle_key = toggle_key
+    hook.addkey(toggle_key, "venus_lib_toggle", function(toggle)
+        if toggle then
+            library:Close()
+        end
+    end)
+    
+    -- Center window on screen
+    local screen_size = get_screen_size()
+    window.position = vector2(screen_size.x / 2 - sizeX / 2, screen_size.y / 2 - sizeY / 2)
+    
     -- Initialize render hook if not already added
     if not library.render_initialized then
         library.render_initialized = true
         -- Render hook is already added at the end of the file
     end
+    
+    log.add("Venus Lib loaded! Press INSERT to toggle GUI", color(0, 1, 0, 1))
     
     return window
 end
@@ -923,6 +940,11 @@ function library:Close()
     if library.window then
         library.window.open = library.open
     end
+    if library.open then
+        log.add("GUI opened (Press INSERT to toggle)", color(0, 1, 0, 1))
+    else
+        log.add("GUI closed (Press INSERT to toggle)", color(1, 1, 0, 1))
+    end
 end
 
 function library:ChangeThemeOption(option, color)
@@ -1084,13 +1106,15 @@ local mouse_clicked = false
 local keys_pressed = {}
 
 hook.add("render", "venus_lib_render", function()
+    -- Always update mouse position for input handling
+    mouse_pos = input.get_mouse_position()
+    
     if not library.open or not library.window then
         return
     end
     
     local window = library.window
     local screen_size = get_screen_size()
-    mouse_pos = input.get_mouse_position()
     
     -- Draw background texture if set
     if library.backgroundtexture then
@@ -1132,8 +1156,8 @@ hook.add("render", "venus_lib_render", function()
         )
     end
     
-    -- Draw window
-    if window.open then
+    -- Draw window (only if library and window are both open)
+    if window.open and library.open then
         local win_pos = window.position
         local win_size = vector2(window.sizeX, window.sizeY)
         
