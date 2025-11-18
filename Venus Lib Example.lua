@@ -1,26 +1,58 @@
 --// Venus Lib Example - Photon API Version
---// Load the library from GitHub
+--// Load the library from GitHub or Pastebin
 
 local library = nil
 
--- Load library from GitHub
-http.get("https://raw.githubusercontent.com/hazyyxx/venus-for-photon/refs/heads/main/Venus%20Lib%20Source.lua", function(body, statuscode)
-    if statuscode == 200 then
-        local success, result = pcall(function()
-            local lib = loadstring(body)()
-            return lib
+-- Library URL - Change this to your GitHub raw URL or Pastebin raw URL
+-- GitHub: https://raw.githubusercontent.com/hazyyxx/venus-for-photon/refs/heads/main/Venus%20Lib%20Source.lua
+-- Pastebin: https://pastebin.com/raw/YOUR_PASTEBIN_ID
+local LIBRARY_URL = "https://pastebin.com/raw/cv7vH2Gg"
+
+-- Alternative: Use Pastebin raw URL
+-- local LIBRARY_URL = "https://pastebin.com/raw/YOUR_PASTEBIN_ID"
+
+-- Global variable to store library (accessible across scopes)
+-- Initialize it as an empty table so the library can detect it
+__VENUS_LIB_STORAGE = {}
+
+-- Load library from URL
+http.get(LIBRARY_URL, function(body, statuscode)
+    if statuscode == 200 and body then
+        local success, err = pcall(function()
+            -- Execute the library code
+            -- The library will store itself in __VENUS_LIB_STORAGE if it exists
+            run_string(body)
+            
+            -- Wait a moment for execution to complete
+            wait(20)
+            
+            -- Retrieve the library from global storage
+            if __VENUS_LIB_STORAGE and type(__VENUS_LIB_STORAGE) == "table" and __VENUS_LIB_STORAGE.Load then
+                library = __VENUS_LIB_STORAGE
+                __VENUS_LIB_STORAGE = nil -- Clean up
+                log.add("Library loaded successfully!", color(0, 1, 0, 1))
+                initUI()
+            else
+                log.add("Library executed but not found in storage. Type: " .. type(__VENUS_LIB_STORAGE), color(1, 1, 0, 1))
+                -- Try one more time after a longer wait
+                wait(100)
+                if __VENUS_LIB_STORAGE and type(__VENUS_LIB_STORAGE) == "table" and __VENUS_LIB_STORAGE.Load then
+                    library = __VENUS_LIB_STORAGE
+                    __VENUS_LIB_STORAGE = nil
+                    log.add("Library loaded on retry!", color(0, 1, 0, 1))
+                    initUI()
+                else
+                    log.add("Failed to retrieve library. Storage type: " .. type(__VENUS_LIB_STORAGE), color(1, 0, 0, 1))
+                end
+            end
         end)
         
-        if success and result then
-            library = result
-            
-            -- Initialize UI after library loads
-            initUI()
-        else
-            log.add("Failed to load library: " .. tostring(result), color(1, 0, 0, 1))
+        if not success then
+            log.add("Failed to execute library code: " .. tostring(err), color(1, 0, 0, 1))
         end
     else
-        log.add("Failed to fetch library from GitHub. Status: " .. tostring(statuscode), color(1, 0, 0, 1))
+        log.add("Failed to fetch library. Status: " .. tostring(statuscode), color(1, 0, 0, 1))
+        log.add("Please check your internet connection or try using a Pastebin raw URL", color(1, 1, 0, 1))
     end
 end)
 
@@ -671,4 +703,3 @@ spawn(function()
         end
     end
 end)
-
