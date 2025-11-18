@@ -1,30 +1,73 @@
 --// Venus Lib Example - Photon API Version
---// Load the library (assuming it's in the same directory or loaded via require)
+--// Load the library from GitHub
 
-local library = require("Venus Lib Source") -- or loadstring if loading from file
+local library = nil
 
-local watermark = library:Watermark("watermark | 60 fps | v4.20 | dev")
--- watermark:Set("Watermark Set")
--- watermark:Hide() -- toggles watermark
+-- Load library from GitHub
+http.get("https://raw.githubusercontent.com/hazyyxx/venus-for-photon/refs/heads/main/Venus%20Lib%20Example.lua", function(body, statuscode)
+    if statuscode == 200 then
+        local success, result = pcall(function()
+            local lib = loadstring(body)()
+            return lib
+        end)
+        
+        if success and result then
+            library = result
+            
+            -- Initialize UI after library loads
+            initUI()
+        else
+            log.add("Failed to load library: " .. tostring(result), color(1, 0, 0, 1))
+        end
+    else
+        log.add("Failed to fetch library from GitHub. Status: " .. tostring(statuscode), color(1, 0, 0, 1))
+    end
+end)
 
-local main = library:Load{
-    Name = "vozoid hax or something",
-    SizeX = 600,
-    SizeY = 650,
-    Theme = "Midnight",
-    Extension = "json", -- config file extension
-    Folder = "vozoid ui or something" -- config folder name
-}
+-- Wait for library to load
+local function waitForLibrary()
+    local attempts = 0
+    while not library and attempts < 100 do
+        wait(10)
+        attempts = attempts + 1
+    end
+    
+    if not library then
+        log.add("Library failed to load. Please check your internet connection and GitHub URL.", color(1, 0, 0, 1))
+        return false
+    end
+    
+    return true
+end
 
--- Set background image (optional)
--- library:SetBackgroundImage("background.png") -- Loads image from photon/data folder
+-- Initialize UI function
+function initUI()
+    if not library then
+        return
+    end
 
--- library.Extension = "txt" (config file extension)
--- library.Folder = "config folder name"
+    local watermark = library:Watermark("watermark | 60 fps | v4.20 | dev")
+    -- watermark:Set("Watermark Set")
+    -- watermark:Hide() -- toggles watermark
 
-local tab = main:Tab("Tab")
+    local main = library:Load{
+        Name = "vozoid hax or something",
+        SizeX = 600,
+        SizeY = 650,
+        Theme = "Midnight",
+        Extension = "json", -- config file extension
+        Folder = "vozoid ui or something" -- config folder name
+    }
 
-local section = tab:Section{
+    -- Set background image (optional)
+    -- library:SetBackgroundImage("background.png") -- Loads image from photon/data folder
+
+    -- library.Extension = "txt" (config file extension)
+    -- library.Folder = "config folder name"
+
+    local tab = main:Tab("Tab")
+
+    local section = tab:Section{
     Name = "Section",
     Side = "Left"
 }
@@ -616,3 +659,15 @@ end
 
 --library:Close()
 --library:Unload()
+
+end -- Close initUI function
+
+-- Start initialization (fallback if http.get callback doesn't fire immediately)
+spawn(function()
+    wait(100) -- Give http.get time to execute
+    if not library then
+        if waitForLibrary() then
+            initUI()
+        end
+    end
+end)
