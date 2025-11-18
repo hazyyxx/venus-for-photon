@@ -152,7 +152,29 @@ function Window.new(name, sizeX, sizeY, theme_name)
     self.sections = {}
     self.open = true
     
-    library:SetTheme(theme_name or "Default")
+    -- Set theme with error handling
+    local success, err = pcall(function()
+        library:SetTheme(theme_name or "Default")
+    end)
+    
+    if not success then
+        -- If theme setting fails, use hardcoded Default theme
+        library.currenttheme = "Default"
+        library.theme = {}
+        for k, v in pairs(themes["Default"]) do
+            library.theme[k] = v
+        end
+        log.add("Theme load failed, using Default: " .. tostring(err), color(1, 1, 0, 1))
+    end
+    
+    -- Ensure theme is initialized
+    if not library.theme or not next(library.theme) then
+        library.currenttheme = "Default"
+        library.theme = {}
+        for k, v in pairs(themes["Default"]) do
+            library.theme[k] = v
+        end
+    end
     
     return self
 end
@@ -703,16 +725,27 @@ function library:Load(options)
     local window = Window.new(name, sizeX, sizeY, theme)
     library.window = window
     
-    -- Auto-load themes
+    -- Auto-load themes (non-critical, won't fail if files don't exist)
     library:LoadThemes()
     
-    -- Auto-load last config if exists
+    -- Auto-load last config if exists (non-critical, won't fail if files don't exist)
     local last_config_file = library.folder .. "/last_config.txt"
     if file.exists(last_config_file) then
-        local last_config = file.read(last_config_file)
-        local config_file = library.folder .. "/" .. tostring(get_placeid()) .. "/" .. last_config .. "." .. library.extension
-        if file.exists(config_file) then
-            library:LoadConfig(last_config)
+        local success, last_config = pcall(function()
+            return file.read(last_config_file)
+        end)
+        
+        if success and last_config and last_config ~= "" then
+            local config_file = library.folder .. "/" .. tostring(get_placeid()) .. "/" .. last_config .. "." .. library.extension
+            if file.exists(config_file) then
+                local config_success, config_err = pcall(function()
+                    library:LoadConfig(last_config)
+                end)
+                if not config_success then
+                    -- Config load failed, but don't stop initialization
+                    log.add("Failed to load last config: " .. tostring(config_err), color(1, 1, 0, 1))
+                end
+            end
         end
     end
     
@@ -803,24 +836,31 @@ function library:LoadConfig(name, universal)
     local filepath = library.folder .. "/" .. placeid .. "/" .. name .. "." .. library.extension
     
     if file.exists(filepath) then
-        local config_data = file.read(filepath)
-        local configtbl = JSON_to_table(config_data)
+        local success, config_data = pcall(function()
+            return file.read(filepath)
+        end)
         
-        if configtbl then
-            for flag, value in pairs(configtbl) do
-                if library.flags[flag] ~= nil then
-                    if type(value) == "table" and value.type == "color" then
-                        library.flags[flag] = color(value.r, value.g, value.b, value.a or 1)
-                    else
-                        library.flags[flag] = value
+        if success and config_data then
+            local configtbl = JSON_to_table(config_data)
+            
+            if configtbl then
+                for flag, value in pairs(configtbl) do
+                    if library.flags[flag] ~= nil then
+                        if type(value) == "table" and value.type == "color" then
+                            library.flags[flag] = color(value.r, value.g, value.b, value.a or 1)
+                        else
+                            library.flags[flag] = value
+                        end
                     end
                 end
+                
+                -- Save as last config
+                pcall(function()
+                    file.write(library.folder .. "/last_config.txt", name)
+                end)
+                
+                return true
             end
-            
-            -- Save as last config
-            file.write(library.folder .. "/last_config.txt", name)
-            
-            return true
         end
     end
     
@@ -907,13 +947,35 @@ function library:SetTheme(theme)
         -- Load from file
         local filepath = library.folder .. "/themes/" .. theme .. ".json"
         if file.exists(filepath) then
-            local theme_data = file.read(filepath)
-            local themetbl = JSON_to_table(theme_data)
+            local success, theme_data = pcall(function()
+                return file.read(filepath)
+            end)
             
-            if themetbl then
+            if success and theme_data then
+                local themetbl = JSON_to_table(theme_data)
+                
+                if themetbl then
+                    library.theme = {}
+                    for option, hex in pairs(themetbl) do
+                        library.theme[option] = utility.hex_to_color(hex)
+                    end
+                else
+                    -- Fallback to Default theme if parsing fails
+                    library:SetTheme("Default")
+                end
+            else
+                -- Fallback to Default theme if file read fails
+                library:SetTheme("Default")
+            end
+        else
+            -- Fallback to Default theme if file doesn't exist
+            if theme ~= "Default" then
+                library:SetTheme("Default")
+            else
+                -- Even Default should have a theme, use hardcoded one
                 library.theme = {}
-                for option, hex in pairs(themetbl) do
-                    library.theme[option] = utility.hex_to_color(hex)
+                for k, v in pairs(themes["Default"]) do
+                    library.theme[k] = v
                 end
             end
         end
