@@ -4,7 +4,7 @@
 local library = nil
 
 -- Load library from GitHub
-http.get("https://raw.githubusercontent.com/hazyyxx/venus-for-photon/refs/heads/main/Venus%20Lib%20Example.lua", function(body, statuscode)
+http.get("https://raw.githubusercontent.com/hazyyxx/venus-for-photon/refs/heads/main/Venus%20Lib%20Source.lua", function(body, statuscode)
     if statuscode == 200 then
         local success, result = pcall(function()
             local lib = loadstring(body)()
@@ -671,3 +671,4 @@ spawn(function()
         end
     end
 end)
+
