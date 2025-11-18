@@ -18,6 +18,7 @@ library.extension = "json"
 library.theme = {}
 library.configignores = {}
 library.backgroundtexture = nil
+library.notifications = {} -- Notification system
 
 -- Theme definitions
 local themes = {
@@ -771,6 +772,7 @@ function library:Load(options)
     end
     
     log.add("Venus Lib loaded! Press INSERT to toggle GUI", color(0, 1, 0, 1))
+    library:Notify("Venus Lib loaded! Press INSERT to toggle", 3, "success")
     
     return window
 end
@@ -942,8 +944,10 @@ function library:Close()
     end
     if library.open then
         log.add("GUI opened (Press INSERT to toggle)", color(0, 1, 0, 1))
+        library:Notify("GUI opened", 2, "success")
     else
         log.add("GUI closed (Press INSERT to toggle)", color(1, 1, 0, 1))
+        library:Notify("GUI closed", 2, "info")
     end
 end
 
@@ -1091,6 +1095,20 @@ function library:SetBackgroundImage(filename)
     return false
 end
 
+function library:Notify(text, duration, notif_type)
+    duration = duration or 3
+    notif_type = notif_type or "info" -- "info", "success", "warning", "error"
+    
+    table.insert(library.notifications, {
+        text = text,
+        duration = duration,
+        start_time = get_unixtime(),
+        type = notif_type,
+        alpha = 0,
+        target_alpha = 1
+    })
+end
+
 function library:Unload()
     library.open = false
     if library.window then
@@ -1109,6 +1127,79 @@ hook.add("render", "venus_lib_render", function()
     -- Always update mouse position for input handling
     mouse_pos = input.get_mouse_position()
     
+    -- Draw notifications (always visible, even when GUI is closed)
+    local notification_y = 40
+    for i = #library.notifications, 1, -1 do
+        local notif = library.notifications[i]
+        local time_passed = get_unixtime() - notif.start_time
+        
+        if time_passed > notif.duration then
+            notif.target_alpha = 0
+        end
+        
+        -- Smooth alpha transition
+        notif.alpha = notif.alpha + (notif.target_alpha - notif.alpha) * 0.1
+        
+        if notif.target_alpha == 0 and notif.alpha < 0.01 then
+            table.remove(library.notifications, i)
+        else
+            local notif_text_size = utility.get_text_size(notif.text, 12)
+            local notif_size = vector2(notif_text_size.x + 20, 24)
+            local notif_pos = vector2(10, notification_y)
+            
+            -- Notification background
+            local bg_color = library.theme["Window Background"] or color(0.1, 0.1, 0.1, 1)
+            local border_color = library.theme["Accent"] or color(0.2, 0.6, 1, 1)
+            
+            -- Color based on type
+            if notif.type == "success" then
+                border_color = color(0, 1, 0, notif.alpha)
+            elseif notif.type == "warning" then
+                border_color = color(1, 1, 0, notif.alpha)
+            elseif notif.type == "error" then
+                border_color = color(1, 0, 0, notif.alpha)
+            else
+                border_color = color(border_color.r, border_color.g, border_color.b, notif.alpha)
+            end
+            
+            render.add_rect_filled(
+                notif_pos,
+                vector2(notif_pos.x + notif_size.x, notif_pos.y + notif_size.y),
+                color(bg_color.r, bg_color.g, bg_color.b, notif.alpha),
+                2
+            )
+            
+            render.add_rect(
+                notif_pos,
+                vector2(notif_pos.x + notif_size.x, notif_pos.y + notif_size.y),
+                border_color,
+                2,
+                1
+            )
+            
+            -- Accent bar
+            render.add_rect_filled(
+                notif_pos,
+                vector2(notif_pos.x + 3, notif_pos.y + notif_size.y),
+                border_color,
+                0
+            )
+            
+            -- Notification text
+            local text_color = library.theme["Text"] or color(1, 1, 1, 1)
+            render.add_text(
+                vector2(notif_pos.x + 8, notif_pos.y + 4),
+                notif.text,
+                color(text_color.r, text_color.g, text_color.b, notif.alpha),
+                12,
+                false
+            )
+            
+            notification_y = notification_y + notif_size.y + 4
+        end
+    end
+    
+    -- Check if GUI should be visible
     if not library.open or not library.window then
         return
     end
@@ -1320,6 +1411,7 @@ hook.add("render", "venus_lib_render", function()
                         
                         if mouse_clicked and hovered then
                             element.callback()
+                            library:Notify(element.name .. " clicked", 2, "info")
                         end
                         
                         element_y = element_y + 28
@@ -1371,6 +1463,7 @@ hook.add("render", "venus_lib_render", function()
                                 library.flags[element.flag] = element.value
                             end
                             element.callback(element.value)
+                            library:Notify(element.name .. " " .. (element.value and "enabled" or "disabled"), 2, element.value and "success" or "info")
                         end
                         
                         element_y = element_y + 24
@@ -1748,6 +1841,13 @@ hook.addkey(0x01, "mouse_left", function(toggle)
         mouse_down = false
     end
 end)
+
+-- Store library in global for external loading
+-- This allows the library to be loaded via http.get and run_string
+-- Check if the storage variable exists (was initialized by the loader)
+if __VENUS_LIB_STORAGE ~= nil then
+    __VENUS_LIB_STORAGE = library
+end
 
 -- Return library
 return library
