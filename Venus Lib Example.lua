@@ -16,65 +16,8 @@ local LIBRARY_URL = "https://pastebin.com/raw/cv7vH2Gg"
 -- Initialize it as an empty table so the library can detect it
 __VENUS_LIB_STORAGE = {}
 
--- Load library from URL
-http.get(LIBRARY_URL, function(body, statuscode)
-    if statuscode == 200 and body then
-        local success, err = pcall(function()
-            -- Execute the library code
-            -- The library will store itself in __VENUS_LIB_STORAGE if it exists
-            run_string(body)
-            
-            -- Wait a moment for execution to complete
-            wait(20)
-            
-            -- Retrieve the library from global storage
-            if __VENUS_LIB_STORAGE and type(__VENUS_LIB_STORAGE) == "table" and __VENUS_LIB_STORAGE.Load then
-                library = __VENUS_LIB_STORAGE
-                __VENUS_LIB_STORAGE = nil -- Clean up
-                log.add("Library loaded successfully!", color(0, 1, 0, 1))
-                initUI()
-            else
-                log.add("Library executed but not found in storage. Type: " .. type(__VENUS_LIB_STORAGE), color(1, 1, 0, 1))
-                -- Try one more time after a longer wait
-                wait(100)
-                if __VENUS_LIB_STORAGE and type(__VENUS_LIB_STORAGE) == "table" and __VENUS_LIB_STORAGE.Load then
-                    library = __VENUS_LIB_STORAGE
-                    __VENUS_LIB_STORAGE = nil
-                    log.add("Library loaded on retry!", color(0, 1, 0, 1))
-                    initUI()
-                else
-                    log.add("Failed to retrieve library. Storage type: " .. type(__VENUS_LIB_STORAGE), color(1, 0, 0, 1))
-                end
-            end
-        end)
-        
-        if not success then
-            log.add("Failed to execute library code: " .. tostring(err), color(1, 0, 0, 1))
-        end
-    else
-        log.add("Failed to fetch library. Status: " .. tostring(statuscode), color(1, 0, 0, 1))
-        log.add("Please check your internet connection or try using a Pastebin raw URL", color(1, 1, 0, 1))
-    end
-end)
-
--- Wait for library to load
-local function waitForLibrary()
-    local attempts = 0
-    while not library and attempts < 100 do
-        wait(10)
-        attempts = attempts + 1
-    end
-    
-    if not library then
-        log.add("Library failed to load. Please check your internet connection and GitHub URL.", color(1, 0, 0, 1))
-        return false
-    end
-    
-    return true
-end
-
--- Initialize UI function
-function initUI()
+-- Initialize UI function (defined before use)
+local function initUI()
     if not library then
         return
     end
@@ -677,15 +620,20 @@ local scrolling = main:Tab("Scrolling Columns")
 
 for i = 1, 20 do
     local sec = scrolling:Section{
-        Name = tostring(math.random(2000, 20000000)),
+        Name = "Section " .. i,
         Side = math.random(1, 2) == 1 and "Left" or "Right"
     }
 
-    for i = 1, math.random(3, 10) do
+    for j = 1, math.random(3, 10) do
         if math.random(1, 2) == 1 then
-            sec:Label(tostring(math.random(2000, 20000000)))
+            sec:Label("Label " .. j)
         else
-            sec:Button{Name = tostring(math.random(2000, 20000000))}
+            sec:Button{
+                Name = "Button " .. j,
+                Callback = function()
+                    library:Notify("Button " .. j .. " clicked in Section " .. i, 2, "info")
+                end
+            }
         end
     end
 end
@@ -694,6 +642,63 @@ end
 --library:Unload()
 
 end -- Close initUI function
+
+-- Wait for library to load
+local function waitForLibrary()
+    local attempts = 0
+    while not library and attempts < 100 do
+        wait(10)
+        attempts = attempts + 1
+    end
+    
+    if not library then
+        log.add("Library failed to load. Please check your internet connection and GitHub URL.", color(1, 0, 0, 1))
+        return false
+    end
+    
+    return true
+end
+
+-- Load library from URL
+http.get(LIBRARY_URL, function(body, statuscode)
+    if statuscode == 200 and body then
+        local success, err = pcall(function()
+            -- Execute the library code
+            -- The library will store itself in __VENUS_LIB_STORAGE if it exists
+            run_string(body)
+            
+            -- Wait a moment for execution to complete
+            wait(20)
+            
+            -- Retrieve the library from global storage
+            if __VENUS_LIB_STORAGE and type(__VENUS_LIB_STORAGE) == "table" and __VENUS_LIB_STORAGE.Load then
+                library = __VENUS_LIB_STORAGE
+                __VENUS_LIB_STORAGE = nil -- Clean up
+                log.add("Library loaded successfully!", color(0, 1, 0, 1))
+                initUI()
+            else
+                log.add("Library executed but not found in storage. Type: " .. type(__VENUS_LIB_STORAGE), color(1, 1, 0, 1))
+                -- Try one more time after a longer wait
+                wait(100)
+                if __VENUS_LIB_STORAGE and type(__VENUS_LIB_STORAGE) == "table" and __VENUS_LIB_STORAGE.Load then
+                    library = __VENUS_LIB_STORAGE
+                    __VENUS_LIB_STORAGE = nil
+                    log.add("Library loaded on retry!", color(0, 1, 0, 1))
+                    initUI()
+                else
+                    log.add("Failed to retrieve library. Storage type: " .. type(__VENUS_LIB_STORAGE), color(1, 0, 0, 1))
+                end
+            end
+        end)
+        
+        if not success then
+            log.add("Failed to execute library code: " .. tostring(err), color(1, 0, 0, 1))
+        end
+    else
+        log.add("Failed to fetch library. Status: " .. tostring(statuscode), color(1, 0, 0, 1))
+        log.add("Please check your internet connection or try using a Pastebin raw URL", color(1, 1, 0, 1))
+    end
+end)
 
 -- Start initialization (fallback if http.get callback doesn't fire immediately)
 spawn(function()
