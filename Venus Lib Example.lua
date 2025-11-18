@@ -6,10 +6,11 @@ local library = nil
 -- Library URL - Change this to your GitHub raw URL or Pastebin raw URL
 -- GitHub: https://raw.githubusercontent.com/hazyyxx/venus-for-photon/refs/heads/main/Venus%20Lib%20Source.lua
 -- Pastebin: https://pastebin.com/raw/YOUR_PASTEBIN_ID
+-- Library URL - Use Pastebin or GitHub
 local LIBRARY_URL = "https://pastebin.com/raw/cv7vH2Gg"
 
--- Alternative: Use Pastebin raw URL
--- local LIBRARY_URL = "https://pastebin.com/raw/YOUR_PASTEBIN_ID"
+-- Alternative: Use GitHub raw URL
+-- local LIBRARY_URL = "https://raw.githubusercontent.com/hazyyxx/venus-for-photon/refs/heads/main/Venus%20Lib%20Source.lua"
 
 -- Global variable to store library (accessible across scopes)
 -- Initialize it as an empty table so the library can detect it
